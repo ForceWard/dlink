@@ -1,0 +1,268 @@
+#! /bin/bash
+# Programming and idea by : E2MA3N [Iman Homayouni]
+# Email : e2ma3n@Gmail.com
+# Website : http://OSLearn.ir
+# License : GPL v3.0
+# dlink v2.0
+# tested on Dlink DSL-2600U
+#####################################################
+# SNR :
+#[29,40] Excellent
+#[21,28] Very good
+#[11,20] Good
+#[07,10] Bad
+#[00,06] Very bad
+#
+# Attenuation :
+#[61,70] Shame !
+#[51,60] Very bad
+#[41,50] Bad
+#[31,40] Good
+#[21,30] Very good
+#[00,20] Excellent
+#####################################################
+
+# Router informations
+username=admin
+password=admin
+ip_address=192.168.1.1
+
+# Program help function
+function help {
+echo "Usage: dlink [-s status] [-sr status and reapeat] [-i info]" 
+echo "	 [-w notification] [-a arp] [-r reboot] [-c check]"
+echo '	-s	status for once (SNR, rate, attenuation and others...)'
+echo '	-sr	status and repeat (monitor mode)'
+echo '	-i	info (IP address, GW and dns servers)'
+echo '	-w	show notification when SNR < 10'
+echo '	-a	arp table'
+echo '	-r	reboot router'
+echo '	-c 	check connections (Internet and router access)'
+echo ''
+echo 'Example:'
+echo '	dlink -sr 10'
+echo '	dlink -s'
+echo '	dlink -i'
+echo '	dlink -w'
+echo '	dlink -a'
+echo '	dlink -r'
+echo '	dlink -c'
+}
+
+# title and header function
+function header {
+echo "====================================================================="
+echo -e "[+] Programming & idea by \e[1mE2MA3N [Iman Homayouni]\e[0m"
+echo "[+] License : GPL v3.0"
+echo "====================================================================="
+}
+
+# warning function (notification when SNR hase vary low)
+function warning { header
+
+# Connect to router and get SNR, attenuation and ...
+curl -u $username:$password $ip_address/statsifcwan.html 2> /dev/null | html2text > /tmp/dlink_warning.txt
+
+# Get SNR number
+W1=`cat /tmp/dlink_warning.txt | head -n 33 | tail -n 3 | head -n 1 | tr -s ' ' | cut -d ' ' -f 5`
+
+# int W1
+W1=${W1%.*}
+
+# check SNR number
+if (( $W1 < 10 )) ; then
+	zenity --timeout=420 --notification --text "SNR Downstream is $W1 dB"
+fi
+}
+
+# Info function (IP address, GW and dns servers)
+function info { header
+
+# Get informations
+curl -u $username:$password http://$ip_address/info.html 2> /dev/null | html2text > /tmp/dlink_info.txt
+
+echo -e "\e[93m"
+cat /tmp/dlink_info.txt | grep 'IP Address' | head -n1
+cat /tmp/dlink_info.txt | grep 'Default Gateway'
+cat /tmp/dlink_info.txt | grep 'Perferred DNS Server'
+cat /tmp/dlink_info.txt | grep 'Alternate DNS Server'
+echo -e "\e[0m"
+echo "====================================================================="
+}
+
+# Status function (SNR, rate, attenuation and others...)
+function status { header
+
+# Connect to router and get SNR, attenuation and ...
+curl -u $username:$password http://$ip_address/statsifcwan.html 2> /dev/null | html2text > /tmp/dlink.txt
+
+# Get SNR number
+A1=`cat /tmp/dlink.txt | head -n 33 | tail -n 3 | head -n 1 | tr -s ' ' | cut -d ' ' -f 5`
+
+# Check connection, successful or unsuccessful
+if [ -z $A1 ]
+then
+	echo "[-] Error : Connectiong error !"
+	echo "====================================================================="
+        exit
+fi
+
+# int A1
+A1=${A1%.*}
+
+# SNR output line
+A=`cat /tmp/dlink.txt | head -n 33 | tail -n 3 | head -n 1`
+
+# Attenuation output line
+B=`cat /tmp/dlink.txt | head -n 33 | tail -n 3 | head -n 2 | tail -n 1`
+
+# Get Attenuation number
+B1=`cat /tmp/dlink.txt | head -n 33 | tail -n 3 | head -n 2 | tail -n 1 | tr -s ' '| cut -d ' ' -f 4`
+
+# int B1
+B1=${B1%.*}
+
+# Print rate
+cat /tmp/dlink.txt | head -n29 | tail -n3
+
+# Print SNR number and line
+if (( $A1 > 0 ));then
+	if (( $A1 > 6 ));then
+		if (( $A1 > 10 ));then
+			if (( $A1 > 20 ));then
+				if (( $A1 > 28 ));then
+					echo -e "\e[34m$A\e[0m"
+				else
+					echo -e "\e[96m$A\e[0m"
+				fi
+			else
+				echo -e "\e[92m$A\e[0m"
+			fi
+		else
+			echo -e "\e[93m$A\e[0m"
+		fi
+	else
+		echo -e "\e[91m$A\e[0m"
+	fi
+else
+	echo erro
+fi
+
+# Print Attenuation number and line
+if (( $B1 > 20 ));then
+	if (( $B1 > 30 ));then
+		if (( $B1 > 40 ));then
+			if (( $B1 > 50 ));then
+				if (( $B1 > 60 ));then
+					echo -e "\e[41m$B\e[0m"
+				else
+					echo -e "\e[91m$B\e[0m"
+				fi
+			else
+				echo -e "\e[93m$B\e[0m"
+			fi
+		else
+			echo -e "\e[92m$B\e[0m"
+		fi
+	else
+		echo -e "\e[36m$B\e[0m"
+	fi
+else
+	echo -e "\e[34m$B\e[0m"
+fi
+
+# Print output power number and line
+cat /tmp/dlink.txt | head -n 33 | tail -n1
+
+# Benckmark
+echo '' ; echo -en "| \e[34mExcellent \e[0m| "
+echo -en "\e[96mVery good \e[0m| "
+echo -en "\e[92mGood \e[0m| "
+echo -en "\e[93mBad \e[0m| "
+echo -e "\e[91mVery bad\e[0m |"
+echo ''
+}
+
+# Device concected using arp
+function arp { header
+
+# Connect to router and get arp tanle
+{ echo "$password" ; echo "ip arp status" ; sleep 1 ; } | telnet $ip_address 1> /tmp/dlink_arp.txt 2> /dev/null
+
+A0=`sed -n "/D-Link/,/D-Link/p" /tmp/dlink_arp.txt | wc -l`
+A1=`expr $A0 - 1`
+A2=`expr $A1 - 2`
+sed -n "/D-Link/,/D-Link/p" /tmp/dlink_arp.txt | head -n $A1 | tail -n $A2
+echo "====================================================================="
+}
+
+# check connection
+function check {
+
+for (( i=0 ; i < 5 ; i++ )) ; do
+header
+
+echo '[+] Connecting to router...'
+ping $ip_address -c 2 &> /dev/null
+
+if [ "$?" = "0" ] ; then
+	echo -e "[+] Router is \e[92mON\e[0m"
+else
+	echo -e "[-] Router is \e[91mOFF\e[0m"
+fi
+
+echo '' ; echo '[+] Connecting to GOOGLE...'
+ping google.com -c 2 &> /dev/null
+
+if [ "$?" = "0" ] ; then
+	echo -e "[+] \e[92mInternet Access\e[0m"
+	echo "====================================================================="
+	exit
+
+else
+	echo -e "[-] \e[91mNO Internet Access\e[0m"
+	echo "====================================================================="
+	sleep 2 ; reset
+
+fi ; done
+echo "====================================================================="
+}
+
+# Reboot router
+function reboot { header
+
+{ echo "$password" ; echo "set reboot" ; sleep 1 ; } | telnet $ip_address
+
+echo "====================================================================="
+sleep 2 ; reset ; check
+}
+
+# Main
+case $1 in
+	-s)
+		status
+		echo "====================================================================="
+		;;
+	-sr)
+		reset
+		for ((;;));do
+			status
+			echo -n "====================================================================="
+			sleep $2
+			reset
+		done
+		;;
+	-i) reset ; info ;;
+	-w)
+		reset
+		for ((;;));do
+			warning
+			sleep 120
+			reset
+		done
+		;;
+	-a) reset ; arp ;;
+	-r) reset ; reboot ;;
+	-c) reset ; check ;;
+	*) help ;;
+esac
